@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useSelector } from 'react-redux';
 import styled from 'styled-components';
 import { useHistory, useLocation, useRouteMatch } from 'react-router';
@@ -70,6 +70,7 @@ const VolumePageContent = (props) => {
     node,
     volumeListData,
     pVList,
+    pVCList,
     pods,
     alerts,
     volumeStats,
@@ -82,8 +83,23 @@ const VolumePageContent = (props) => {
   const query = new URLSearchParams(location.search);
 
   const theme = useSelector((state) => state.config.theme);
-
   const currentVolumeName = match.params.name;
+
+  // If data has been retrieved and no volume is selected yet we select the first one
+  useEffect(() => {
+    if (
+      volumeListData[0]?.name &&
+      alerts.list?.length &&
+      pVCList.length &&
+      !currentVolumeName
+    ) {
+      history.replace({
+        pathname: `/volumes/${volumeListData[0]?.name}/overview`,
+        search: query.toString(),
+      });
+    }
+  }, [volumeListData, currentVolumeName, query, history, alerts.list, pVCList]);
+
   const volume = volumes?.find(
     (volume) => volume.metadata.name === currentVolumeName,
   );
