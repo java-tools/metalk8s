@@ -346,7 +346,7 @@ function Table({
         </TableRow>
       );
     },
-    [prepareRow, rowClicked, rows, volumeName, theme],
+    [prepareRow, rowClicked, rows, volumeName, theme, data],
   );
 
   return (
