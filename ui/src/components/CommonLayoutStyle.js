@@ -89,7 +89,8 @@ export const SortIncentive = styled.span`
   display: none;
 `;
 
-export const TableHeader = styled.th`
+export const TableHeader = styled.span`
+  padding: ${padding.base};
   &:hover {
     ${SortIncentive} {
       display: block;
