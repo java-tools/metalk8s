@@ -100,7 +100,7 @@ const VolumeListContainer = styled.div`
   }
 `;
 
-const TableRow = styled.tr`
+const TableRow = styled.div`
   &:hover,
   &:focus {
     background-color: ${(props) => props.theme.brand.backgroundBluer};
@@ -119,7 +119,7 @@ const TableRow = styled.tr`
 `;
 
 // * table body
-const Body = styled.tbody`
+const Body = styled.div`
   display: block;
   height: calc(100vh - 250px);
 `;
@@ -132,7 +132,7 @@ const ActionContainer = styled.span`
   display: flex;
   flex-direction: row-reverse;
   justify-content: space-between;
-  padding: ${padding.base} ${padding.base} ${padding.base} 17px;
+  padding: ${padding.large} ${padding.base} ${padding.base} 20px;
 `;
 
 const TooltipContent = styled.div`
@@ -305,7 +305,7 @@ function Table({
             let cellProps = cell.getCellProps({
               style: {
                 ...cell.column.cellStyle,
-                // Center text vertically in cells.
+                // Vertically center the text in cells.
                 display: 'flex',
                 flexDirection: 'column',
                 justifyContent: 'center',
@@ -314,16 +314,20 @@ function Table({
 
             if (cell.column.Header === 'Name') {
               return (
-                <td {...cellProps} data-cy="volume_table_name_cell">
+                <div
+                  {...cellProps}
+                  data-cy="volume_table_name_cell"
+                  className="td"
+                >
                   {cell.render('Cell')}
-                </td>
+                </div>
               );
             } else if (
               cell.column.Header !== 'Name' &&
               cell.value === undefined
             ) {
               return (
-                <td {...cellProps}>
+                <div {...cellProps} className="td">
                   <Tooltip
                     placement="top"
                     overlay={
@@ -337,10 +341,14 @@ function Table({
                       theme={theme}
                     ></UnknownIcon>
                   </Tooltip>
-                </td>
+                </div>
               );
             } else {
-              return <td {...cellProps}>{cell.render('Cell')}</td>;
+              return (
+                <div {...cellProps} className="td">
+                  {cell.render('Cell')}
+                </div>
+              );
             }
           })}
         </TableRow>
@@ -351,15 +359,11 @@ function Table({
 
   return (
     <>
-      <table {...getTableProps()}>
-        <thead>
+      <div {...getTableProps()} className="table">
+        <div className="thead">
           {/* The first row should be the search bar */}
-          <tr>
-            <th
-              style={{
-                textAlign: 'left',
-              }}
-            >
+          <div className="tr">
+            <div className="th">
               <ActionContainer>
                 <CreateVolumeButton
                   size="small"
@@ -386,12 +390,12 @@ function Table({
                   />
                 ) : null}
               </ActionContainer>
-            </th>
-          </tr>
+            </div>
+          </div>
 
           {headerGroups.map((headerGroup) => {
             return (
-              <tr
+              <div
                 {...headerGroup.getHeaderGroupProps()}
                 style={{
                   display: 'flex',
@@ -423,31 +427,34 @@ function Table({
                     </TableHeader>
                   );
                 })}
-              </tr>
+              </div>
             );
           })}
-        </thead>
+        </div>
         <Body {...getTableBodyProps()}>
           {data.length === 0 ? (
-            <tr
+            <div
               style={{
                 width: '100%',
                 paddingTop: padding.base,
                 height: '60px',
               }}
+              className="tr"
             >
-              <td
+              <div
                 style={{
                   textAlign: 'center',
                   background: theme.brand.primary,
                   border: 'none',
                 }}
+                className="td"
               >
                 No Volume
-              </td>
-            </tr>
+              </div>
+            </div>
           ) : null}
-
+          {/* <AutoSizer> is a <div/> so it breaks the table layout, 
+          we need to use <div/> for all the parts of table(thead, tbody, tr, td...) and retrieve the defaullt styles by className. */}
           <AutoSizer>
             {({ height, width }) => (
               <List
@@ -461,7 +468,7 @@ function Table({
             )}
           </AutoSizer>
         </Body>
-      </table>
+      </div>
     </>
   );
 }
