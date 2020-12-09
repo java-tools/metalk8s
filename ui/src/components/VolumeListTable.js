@@ -9,7 +9,10 @@ import {
   useGlobalFilter,
   useAsyncDebounce,
   useSortBy,
+  useBlockLayout,
 } from 'react-table';
+import { FixedSizeList as List } from 'react-window';
+import AutoSizer from 'react-virtualized-auto-sizer';
 import { useQuery } from '../services/utils';
 import {
   fontSize,
@@ -40,19 +43,16 @@ const VolumeListContainer = styled.div`
   color: ${(props) => props.theme.brand.textPrimary};
   font-family: 'Lato';
   font-size: ${fontSize.base};
-  border-color: ${(props) => props.theme.brand.borderLight};
   background-color: ${(props) => props.theme.brand.primary};
-  .sc-progressbarcontainer {
-    width: 100%;
-  }
-  .sc-progressbarcontainer > div {
-    background-color: ${(props) => props.theme.brand.secondaryDark1};
-  }
-  .ReactTable .rt-thead {
-    overflow-y: scroll;
-  }
+
   table {
-    border-spacing: 0;
+    display: block;
+    padding-bottom: 13px;
+
+    thead {
+      width: 100%;
+      display: inline-block;
+    }
     .sc-select-container {
       width: 120px;
       height: 10px;
@@ -63,6 +63,9 @@ const VolumeListContainer = styled.div`
     }
 
     tr {
+      display: table;
+      table-layout: fixed;
+      width: 100%;
       :last-child {
         td {
           border-bottom: 0;
@@ -75,34 +78,29 @@ const VolumeListContainer = styled.div`
       font-weight: bold;
       height: 35px;
       text-align: left;
-      padding: ${padding.smaller};
+      padding-top: 3px;
       cursor: pointer;
-      vertical-align: baseline;
     }
 
     td {
       margin: 0;
-      padding: 0.5rem;
       text-align: left;
-      padding: 5px;
-      border: none;
+      border-bottom: 1px solid ${(props) => props.theme.brand.border};
       :last-child {
         border-right: 0;
       }
     }
   }
+
+  .sc-progressbarcontainer {
+    width: 100%;
+  }
+  .sc-progressbarcontainer > div {
+    background-color: ${(props) => props.theme.brand.secondaryDark1};
+  }
 `;
 
-const HeadRow = styled.tr`
-  width: 100%;
-  /* To display scroll bar on the table */
-  display: table;
-  table-layout: fixed;
-`;
-
-const TableRow = styled(HeadRow)`
-  height: 48px;
-  border-bottom: 1px solid ${(props) => props.theme.brand.border};
+const TableRow = styled.div`
   &:hover,
   &:focus {
     background-color: ${(props) => props.theme.brand.backgroundBluer};
@@ -121,17 +119,9 @@ const TableRow = styled(HeadRow)`
 `;
 
 // * table body
-const Body = styled.tbody`
-  /* To display scroll bar on the table */
+const Body = styled.div`
   display: block;
   height: calc(100vh - 250px);
-  overflow: auto;
-  overflow-y: scroll;
-`;
-
-const Cell = styled.td`
-  overflow-wrap: break-word;
-  border-top: 1px solid #424242;
 `;
 
 const CreateVolumeButton = styled(Button)`
@@ -140,15 +130,21 @@ const CreateVolumeButton = styled(Button)`
 
 const ActionContainer = styled.span`
   display: flex;
-  justify-content: space-between;
-  padding: ${padding.base};
   flex-direction: row-reverse;
+  justify-content: space-between;
+  padding: ${padding.large} ${padding.base} ${padding.base} 20px;
 `;
 
 const TooltipContent = styled.div`
   color: ${(props) => props.theme.brand.textSecondary};
   font-weight: ${fontWeight.bold};
   min-width: 60px;
+`;
+
+const UnknownIcon = styled.i`
+  color: ${(props) => props.theme.brand.textSecondary};
+  // Increase the height so that the users don't need to hover precisely on the hyphen.
+  height: 30px;
 `;
 
 function GlobalFilter({
@@ -280,6 +276,7 @@ function Table({
     useFilters,
     useGlobalFilter,
     useSortBy,
+    useBlockLayout,
   );
 
   // Synchronizes the params query with the Table sort state
@@ -289,17 +286,86 @@ function Table({
     ?.isSortedDesc;
   useTableSortURLSync(sorted, desc, data);
 
+  const RenderRow = React.useCallback(
+    ({ index, style }) => {
+      const row = rows[index];
+      prepareRow(row);
+
+      return (
+        <TableRow
+          {...row.getRowProps({
+            onClick: () => rowClicked(row),
+            // Note:
+            // We need to pass the style property to the row component.
+            // Otherwise when we scroll down, the next rows are flashing because they are re-rendered in loop.
+            style: { ...style, marginLeft: '5px' },
+          })}
+          volumeName={volumeName}
+          row={row}
+        >
+          {row.cells.map((cell) => {
+            let cellProps = cell.getCellProps({
+              style: {
+                ...cell.column.cellStyle,
+                // Vertically center the text in cells.
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'center',
+              },
+            });
+
+            if (cell.column.Header === 'Name') {
+              return (
+                <div
+                  {...cellProps}
+                  data-cy="volume_table_name_cell"
+                  className="td"
+                >
+                  {cell.render('Cell')}
+                </div>
+              );
+            } else if (
+              cell.column.Header !== 'Name' &&
+              cell.value === undefined
+            ) {
+              return (
+                <div {...cellProps} className="td">
+                  <Tooltip
+                    placement="top"
+                    overlay={
+                      <TooltipContent>
+                        {intl.translate('unknown')}
+                      </TooltipContent>
+                    }
+                  >
+                    <UnknownIcon
+                      className="fas fa-minus"
+                      theme={theme}
+                    ></UnknownIcon>
+                  </Tooltip>
+                </div>
+              );
+            } else {
+              return (
+                <div {...cellProps} className="td">
+                  {cell.render('Cell')}
+                </div>
+              );
+            }
+          })}
+        </TableRow>
+      );
+    },
+    [prepareRow, rowClicked, rows, volumeName, theme, data],
+  );
+
   return (
     <>
-      <table {...getTableProps()}>
-        <thead>
+      <div {...getTableProps()} className="table">
+        <div className="thead">
           {/* The first row should be the search bar */}
-          <HeadRow>
-            <th
-              style={{
-                textAlign: 'left',
-              }}
-            >
+          <div className="tr">
+            <div className="th">
               <ActionContainer>
                 <CreateVolumeButton
                   size="small"
@@ -326,12 +392,18 @@ function Table({
                   />
                 ) : null}
               </ActionContainer>
-            </th>
-          </HeadRow>
+            </div>
+          </div>
 
           {headerGroups.map((headerGroup) => {
             return (
-              <HeadRow {...headerGroup.getHeaderGroupProps()}>
+              <div
+                {...headerGroup.getHeaderGroupProps()}
+                style={{
+                  display: 'flex',
+                  marginLeft: '5px',
+                }}
+              >
                 {headerGroup.headers.map((column) => {
                   const headerStyleProps = column.getHeaderProps(
                     Object.assign(column.getSortByToggleProps(), {
@@ -357,68 +429,48 @@ function Table({
                     </TableHeader>
                   );
                 })}
-              </HeadRow>
+              </div>
             );
           })}
-        </thead>
+        </div>
         <Body {...getTableBodyProps()}>
           {data.length === 0 ? (
-            <HeadRow
+            <div
               style={{
                 width: '100%',
                 paddingTop: padding.base,
                 height: '60px',
               }}
+              className="tr"
             >
-              <td
+              <div
                 style={{
                   textAlign: 'center',
                   background: theme.brand.primary,
+                  border: 'none',
                 }}
+                className="td"
               >
                 No Volume
-              </td>
-            </HeadRow>
+              </div>
+            </div>
           ) : null}
-
-          {rows.map((row, i) => {
-            prepareRow(row);
-            return (
-              <TableRow
-                {...row.getRowProps({ onClick: () => rowClicked(row) })}
-                volumeName={volumeName}
-                row={row}
+          {/* <AutoSizer> is a <div/> so it breaks the table layout, 
+          we need to use <div/> for all the parts of table(thead, tbody, tr, td...) and retrieve the defaullt styles by className. */}
+          <AutoSizer>
+            {({ height, width }) => (
+              <List
+                height={height}
+                itemCount={rows.length} // how many items we are going to render
+                itemSize={48} // height of each row in pixel
+                width={width}
               >
-                {row.cells.map((cell) => {
-                  let cellProps = cell.getCellProps({
-                    style: {
-                      ...cell.column.cellStyle,
-                    },
-                  });
-                  if (cell.column.Header === 'Name') {
-                    return (
-                      <Cell {...cellProps} data-cy="volume_table_name_cell">
-                        {cell.render('Cell')}
-                      </Cell>
-                    );
-                  } else if (
-                    cell.column.Header !== 'Name' &&
-                    cell.value === undefined
-                  ) {
-                    return (
-                      <Cell {...cellProps}>
-                        <div>{intl.translate('unknown')}</div>
-                      </Cell>
-                    );
-                  } else {
-                    return <Cell {...cellProps}>{cell.render('Cell')}</Cell>;
-                  }
-                })}
-              </TableRow>
-            );
-          })}
+                {RenderRow}
+              </List>
+            )}
+          </AutoSizer>
         </Body>
-      </table>
+      </div>
     </>
   );
 }
@@ -441,7 +493,10 @@ const VolumeListTable = (props) => {
       {
         Header: 'Health',
         accessor: 'health',
-        cellStyle: { textAlign: 'center', width: '90px' },
+        cellStyle: {
+          textAlign: 'center',
+          width: '80px',
+        },
         Cell: (cellProps) => {
           return (
             <CircleStatus className="fas fa-circle" status={cellProps.value} />
@@ -452,6 +507,7 @@ const VolumeListTable = (props) => {
       {
         Header: 'Name',
         accessor: 'name',
+        cellStyle: { flex: 1 },
       },
       {
         Header: 'Usage',
@@ -486,7 +542,7 @@ const VolumeListTable = (props) => {
         accessor: 'status',
         cellStyle: {
           textAlign: 'center',
-          width: isNodeColumn ? '70px' : '110px',
+          width: isNodeColumn ? '50px' : '110px',
         },
         Cell: (cellProps) => {
           const volume = volumeListData?.find(
@@ -523,7 +579,19 @@ const VolumeListTable = (props) => {
                 </Tooltip>
               );
             default:
-              return <div>{intl.translate('unknown')}</div>;
+              return (
+                <Tooltip
+                  placement="top"
+                  overlay={
+                    <TooltipContent>{intl.translate('unknown')}</TooltipContent>
+                  }
+                >
+                  <UnknownIcon
+                    className="fas fa-minus"
+                    theme={theme}
+                  ></UnknownIcon>
+                </Tooltip>
+              );
           }
         },
         sortType: 'status',
@@ -533,7 +601,7 @@ const VolumeListTable = (props) => {
         accessor: 'latency',
         cellStyle: {
           textAlign: 'center',
-          width: isNodeColumn ? '70px' : '110px',
+          width: isNodeColumn ? '75px' : '110px',
         },
         Cell: (cellProps) => {
           return cellProps.value !== undefined ? cellProps.value + ' µs' : null;
@@ -542,7 +610,13 @@ const VolumeListTable = (props) => {
     ],
     [volumeListData, theme, isNodeColumn],
   );
-  const nodeCol = { Header: 'Node', accessor: 'node' };
+  const nodeCol = {
+    Header: 'Node',
+    accessor: 'node',
+    cellStyle: {
+      width: '100px',
+    },
+  };
   if (isNodeColumn) {
     columns.splice(2, 0, nodeCol);
   }
