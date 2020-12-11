@@ -5,6 +5,7 @@ yum install -y epel-release
 PACKAGES=(
     curl
     git
+    jq
     make
     python36-pip
     unzip
